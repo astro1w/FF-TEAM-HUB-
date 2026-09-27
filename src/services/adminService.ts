@@ -48,7 +48,7 @@ export async function setUserStatus(userId: string, status: 'active' | 'suspende
 }
 
 export async function setUserRole(userId: string, role: string, adminId: string) {
-  const { error } = await supabase.from('profiles').update({ role }).eq('id', userId)
+  const { error } = await supabase.from('profiles').update({ role: role as never }).eq('id', userId)
   if (error) throw error
   await supabase.from('admin_logs').insert({
     admin_id: adminId,
