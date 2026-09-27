@@ -1,0 +1,50 @@
+name: Build Android APK
+
+# Corre automaticamente sempre que enviares código para o branch "main",
+# ou manualmente a partir do separador "Actions" no GitHub ("Run workflow").
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Obter o código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Preparar Java (necessário para o Android/Gradle)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Instalar dependências
+        run: npm install
+
+      - name: Construir a aplicação web
+        run: npm run build
+
+      - name: Adicionar a plataforma Android
+        run: npx cap add android
+
+      - name: Sincronizar Capacitor
+        run: npx cap sync android
+
+      - name: Construir o APK (debug)
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Publicar o APK como download
+        uses: actions/upload-artifact@v4
+        with:
+          name: ff-team-hub-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk

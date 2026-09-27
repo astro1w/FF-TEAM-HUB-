@@ -1,0 +1,11 @@
+-- ============================================================
+-- FF TEAM HUB — Seed de demonstração (dados fictícios)
+-- Não representa organizações, torneios ou jogadores reais.
+-- Corre depois de teres pelo menos um utilizador registado, ou
+-- adapta os UUIDs abaixo aos teus próprios utilizadores de teste.
+-- ============================================================
+
+-- Exemplo de como promover um utilizador existente a admin
+-- (substitui o UUID pelo id real em auth.users / profiles):
+--
+-- update profiles set role = 'admin' where id = '00000000-0000-0000-0000-000000000000';
