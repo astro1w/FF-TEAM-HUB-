@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 import { listNotifications, markRead, markAllRead, type Notification } from '@/services/notificationService'
 import { useAuth } from '@/hooks/useAuth'
 import LoadingState from '@/components/ui/LoadingState'

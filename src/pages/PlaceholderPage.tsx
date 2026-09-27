@@ -1,4 +1,3 @@
-import React from 'react'
 import EmptyState from '@/components/ui/EmptyState'
 
 // Página temporária para rotas da Fase 1 cuja UI completa chega numa fase seguinte

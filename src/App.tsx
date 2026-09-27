@@ -1,4 +1,3 @@
-import React from 'react'
 import { Route, Routes } from 'react-router-dom'
 import Splash from '@/pages/Splash'
 import Login from '@/pages/auth/Login'

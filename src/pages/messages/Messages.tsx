@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom'
 import { listConversations } from '@/services/messageService'
 import type { Conversation } from '@/types/message'
