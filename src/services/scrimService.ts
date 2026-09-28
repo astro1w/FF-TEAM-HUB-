@@ -11,8 +11,6 @@ function rowToScrim(row: any): Scrim {
     format: row.format,
     maxTeams: row.max_teams,
     rules: row.rules,
-    roomCode: row.room_code,
-    roomPassword: row.room_password,
     status: row.status,
     country: row.country,
     createdAt: row.created_at,
@@ -54,15 +52,39 @@ export async function createScrim(input: CreateScrimInput, userId: string): Prom
       max_teams: input.maxTeams,
       rules: input.rules?.trim() || null,
       host_team_id: input.hostTeamId || null,
-      room_code: input.roomCode || null,
-      room_password: input.roomPassword || null,
       created_by: userId,
       status: 'open'
     })
     .select()
     .single()
   if (error) throw error
+
+  // Credenciais da sala ficam numa tabela privada (RLS: criador, admin e equipas inscritas)
+  if (input.roomCode || input.roomPassword) {
+    const { error: roomError } = await supabase.from('scrim_rooms').insert({
+      scrim_id: data.id,
+      room_code: input.roomCode || null,
+      room_password: input.roomPassword || null
+    })
+    if (roomError) throw roomError
+  }
   return rowToScrim(data)
+}
+
+export interface RoomCredentials {
+  roomCode: string | null
+  roomPassword: string | null
+}
+
+/** Devolve null se não existir sala definida ou se o utilizador não tiver permissão (RLS). */
+export async function getScrimRoom(scrimId: string): Promise<RoomCredentials | null> {
+  const { data, error } = await supabase
+    .from('scrim_rooms')
+    .select('room_code, room_password')
+    .eq('scrim_id', scrimId)
+    .maybeSingle()
+  if (error) throw error
+  return data ? { roomCode: data.room_code, roomPassword: data.room_password } : null
 }
 
 export async function joinScrim(scrimId: string, teamId: string): Promise<void> {

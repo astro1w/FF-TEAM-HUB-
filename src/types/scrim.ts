@@ -10,8 +10,6 @@ export interface Scrim {
   format: ScrimFormat
   maxTeams: number
   rules: string | null
-  roomCode: string | null
-  roomPassword: string | null
   status: ScrimStatus
   country: string
   createdAt: string

@@ -111,8 +111,6 @@ export async function listMatches(tournamentId: string): Promise<Match[]> {
     roundId: r.round_id,
     name: r.name,
     scheduledAt: r.scheduled_at,
-    roomCode: r.room_code,
-    roomPassword: r.room_password,
     status: r.status
   }))
 }
@@ -127,23 +125,47 @@ export async function createMatch(
       tournament_id: tournamentId,
       name: payload.name || null,
       scheduled_at: payload.scheduledAt || null,
-      room_code: payload.roomCode || null,
-      room_password: payload.roomPassword || null,
       status: 'scheduled'
     })
     .select()
     .single()
   if (error) throw error
+  if (payload.roomCode || payload.roomPassword) {
+    await setMatchRoom(data.id, payload.roomCode, payload.roomPassword)
+  }
   return {
     id: data.id,
     tournamentId: data.tournament_id,
     roundId: data.round_id,
     name: data.name,
     scheduledAt: data.scheduled_at,
-    roomCode: data.room_code,
-    roomPassword: data.room_password,
     status: data.status
   }
+}
+
+export interface MatchRoomCredentials {
+  roomCode: string | null
+  roomPassword: string | null
+}
+
+/** Devolve null se não existir sala ou se o utilizador não tiver permissão (RLS). */
+export async function getMatchRoom(matchId: string): Promise<MatchRoomCredentials | null> {
+  const { data, error } = await supabase
+    .from('match_rooms')
+    .select('room_code, room_password')
+    .eq('match_id', matchId)
+    .maybeSingle()
+  if (error) throw error
+  return data ? { roomCode: data.room_code, roomPassword: data.room_password } : null
+}
+
+export async function setMatchRoom(matchId: string, roomCode?: string, roomPassword?: string): Promise<void> {
+  const { error } = await supabase.from('match_rooms').upsert({
+    match_id: matchId,
+    room_code: roomCode || null,
+    room_password: roomPassword || null
+  })
+  if (error) throw error
 }
 
 export async function upsertMatchResult(

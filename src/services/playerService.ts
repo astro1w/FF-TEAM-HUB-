@@ -52,3 +52,75 @@ export async function getPlayerPage(id: string): Promise<PlayerPage | null> {
     }))
   }
 }
+
+export interface PlayerListItem {
+  profile: Profile
+  isFollowing: boolean
+}
+
+export interface PlayerListFilters {
+  search?: string
+  role?: string
+  province?: string
+  page?: number
+}
+
+export const PLAYERS_PAGE_SIZE = 20
+
+/** Remove caracteres que têm significado especial no filtro .or()/ilike do PostgREST. */
+function sanitizeSearch(input: string): string {
+  return input.replace(/[%,()*\\]/g, ' ').trim().slice(0, 40)
+}
+
+/**
+ * Lista jogadores registados (onboarding concluído, contas ativas — a RLS já esconde
+ * suspensos/banidos), com pesquisa e filtros reais. Exclui o próprio utilizador.
+ */
+export async function listPlayers(
+  currentUserId: string,
+  filters: PlayerListFilters = {}
+): Promise<{ items: PlayerListItem[]; hasMore: boolean }> {
+  const page = filters.page ?? 0
+  const from = page * PLAYERS_PAGE_SIZE
+  const to = from + PLAYERS_PAGE_SIZE // pede +1 para saber se há mais
+
+  let q = supabase
+    .from('profiles')
+    .select('*')
+    .eq('onboarding_completed', true)
+    .neq('id', currentUserId)
+    .order('created_at', { ascending: false })
+    .range(from, to)
+
+  if (filters.role) q = q.eq('primary_role', filters.role)
+  if (filters.province) q = q.eq('province', filters.province)
+
+  const term = filters.search ? sanitizeSearch(filters.search) : ''
+  if (term) q = q.or(`nickname.ilike.%${term}%,competitive_id.ilike.%${term}%`)
+
+  const { data, error } = await q
+  if (error) throw error
+
+  const rows = data ?? []
+  const hasMore = rows.length > PLAYERS_PAGE_SIZE
+  const pageRows = rows.slice(0, PLAYERS_PAGE_SIZE)
+
+  let followedIds = new Set<string>()
+  if (pageRows.length > 0) {
+    const { data: fol, error: folError } = await supabase
+      .from('follows')
+      .select('followed_profile_id')
+      .eq('follower_id', currentUserId)
+      .in('followed_profile_id', pageRows.map((r: any) => r.id))
+    if (folError) throw folError
+    followedIds = new Set((fol ?? []).map((f: any) => f.followed_profile_id))
+  }
+
+  return {
+    items: pageRows.map((r: any) => ({
+      profile: rowToProfile(r),
+      isFollowing: followedIds.has(r.id)
+    })),
+    hasMore
+  }
+}

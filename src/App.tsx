@@ -21,6 +21,7 @@ import CreateTournament from '@/pages/tournaments/CreateTournament'
 import TournamentDetail from '@/pages/tournaments/TournamentDetail'
 import Thread from '@/pages/feed/Thread'
 import PlayerProfile from '@/pages/players/PlayerProfile'
+import Players from '@/pages/players/Players'
 import Feed from '@/pages/feed/Feed'
 import Messages from '@/pages/messages/Messages'
 import Chat from '@/pages/messages/Chat'
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="/explore" element={<Tryouts />} />
             <Route path="/feed" element={<Feed />} />
             <Route path="/feed/:id" element={<Thread />} />
+            <Route path="/players" element={<Players />} />
             <Route path="/players/:id" element={<PlayerProfile />} />
 
             <Route path="/teams" element={<Teams />} />

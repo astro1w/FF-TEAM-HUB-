@@ -42,8 +42,6 @@ export interface Match {
   roundId: string | null
   name: string | null
   scheduledAt: string | null
-  roomCode: string | null
-  roomPassword: string | null
   status: MatchStatus
 }
 

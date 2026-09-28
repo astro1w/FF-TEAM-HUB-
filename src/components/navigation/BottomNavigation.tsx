@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom'
 const items = [
   { to: '/home', label: 'Home', icon: '🏠' },
   { to: '/feed', label: 'Feed', icon: '💬' },
+  { to: '/players', label: 'Jogadores', icon: '🎮' },
   { to: '/teams', label: 'Teams', icon: '👥' },
   { to: '/tournaments', label: 'Torneios', icon: '🏆' },
   { to: '/profile', label: 'Perfil', icon: '👤' }
@@ -20,7 +21,7 @@ export default function BottomNavigation() {
           key={item.to}
           to={item.to}
           className={({ isActive }) =>
-            `flex flex-col items-center justify-center text-xs gap-0.5 px-2 py-1 rounded-lg transition-colors ${
+            `flex flex-col items-center justify-center text-[11px] gap-0.5 px-1 py-1 min-w-[52px] rounded-lg transition-colors ${
               isActive ? 'text-accent' : 'text-white/50'
             }`
           }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { getScrim, joinScrim, listScrimTeams } from '@/services/scrimService'
+import { getScrim, getScrimRoom, joinScrim, listScrimTeams } from '@/services/scrimService'
+import type { RoomCredentials } from '@/services/scrimService'
 import { getMyTeams } from '@/services/teamService'
 import type { Scrim } from '@/types/scrim'
 import type { Team } from '@/types/team'
@@ -20,6 +21,7 @@ export default function ScrimDetail() {
   const [error, setError] = useState<string | null>(null)
   const [joining, setJoining] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState('')
+  const [room, setRoom] = useState<RoomCredentials | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -37,6 +39,12 @@ export default function ScrimDetail() {
       setError('Erro ao carregar Scrim.')
     }).finally(() => setLoading(false))
   }, [id, user])
+
+  // Credenciais vêm de tabela privada; o servidor (RLS) decide quem as vê.
+  useEffect(() => {
+    if (!id || !user) return
+    getScrimRoom(id).then(setRoom).catch(() => setRoom(null))
+  }, [id, user, teams.length])
 
   async function handleJoin() {
     if (!selectedTeam || !scrim) return
@@ -72,14 +80,14 @@ export default function ScrimDetail() {
           <span className="text-xs bg-success/15 text-success px-2 py-1 rounded-full">{scrim.status}</span>
         </div>
         {scrim.rules && <p className="text-sm text-white/60 mt-3 whitespace-pre-wrap">{scrim.rules}</p>}
-        {isParticipant && scrim.roomCode && (
+        {room?.roomCode && (
           <div className="mt-4 p-3 bg-base-700 rounded-xl">
             <p className="text-xs text-white/50">Código da sala</p>
-            <p className="font-mono font-bold">{scrim.roomCode}</p>
-            {scrim.roomPassword && (
+            <p className="font-mono font-bold">{room.roomCode}</p>
+            {room.roomPassword && (
               <>
                 <p className="text-xs text-white/50 mt-2">Senha</p>
-                <p className="font-mono font-bold">{scrim.roomPassword}</p>
+                <p className="font-mono font-bold">{room.roomPassword}</p>
               </>
             )}
           </div>

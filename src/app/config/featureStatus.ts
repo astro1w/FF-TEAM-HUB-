@@ -20,6 +20,7 @@ export const FEATURE_STATUS: Record<string, { status: FeatureStatus; note: strin
   feed_reposts_in_timeline: { status: 'PREPARED', note: 'Republicações são contadas mas ainda não aparecem no feed de quem segue.' },
   feed_share_link: { status: 'PREPARED', note: 'Partilha o texto do post; links precisam de um domínio público (a app ainda não tem).' },
   follows_players: { status: 'REAL', note: 'Seguir/deixar de seguir jogadores; separador "A seguir" no feed.' },
+  players_directory: { status: 'PARTIAL', note: 'Lista de jogadores registados com pesquisa, filtros (função, província) e seguir. Falta rank/experiência e estado online (a app ainda não tem presença em tempo real). Por testar no Supabase.' },
   follows_lists: { status: 'PARTIAL', note: 'Mostra contagens de seguidores/a seguir; ainda sem as listas de pessoas.' },
   follows_teams: { status: 'PREPARED', note: 'Base de dados pronta; falta o botão nas páginas de equipas.' },
   notifications_social: { status: 'REAL', note: 'Novo seguidor e nova resposta geram notificações reais.' },
@@ -28,6 +29,6 @@ export const FEATURE_STATUS: Record<string, { status: FeatureStatus; note: strin
   achievements_display: { status: 'PARTIAL', note: 'O perfil mostra as conquistas existentes; ainda não há gatilhos automáticos que as atribuam.' },
   scrim_room_privacy: {
     status: 'PARTIAL',
-    note: 'ATENÇÃO: código e senha das salas (scrims e partidas) ainda são legíveis por qualquer utilizador autenticado. Correção prioritária.'
+    note: 'Migration 0013 move código/senha das salas para tabelas privadas com RLS (criador, admin e equipas inscritas). Passa a REAL depois de aplicada e testada no Supabase.'
   }
 }
