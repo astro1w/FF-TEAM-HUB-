@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { listUsers, setUserStatus, setUserRole } from '@/services/adminService'
+import { listUsers, setUserStatus, setUserRole, setUserVerified } from '@/services/adminService'
+import VerifiedBadge from '@/components/ui/VerifiedBadge'
 import LoadingState from '@/components/ui/LoadingState'
 import Button from '@/components/ui/Button'
 
@@ -50,7 +51,10 @@ export default function AdminUsers() {
             <div key={u.id} className="card !py-3">
               <div className="flex justify-between items-start gap-2">
                 <div>
-                  <p className="font-medium">{u.nickname}</p>
+                  <p className="font-medium flex items-center gap-1">
+                    {u.nickname}
+                    {u.is_verified && <VerifiedBadge size={14} />}
+                  </p>
                   <p className="text-xs text-white/40">
                     {u.role} · {u.status} · {u.country}
                   </p>
@@ -84,6 +88,21 @@ export default function AdminUsers() {
                   className="!py-1 !px-2 text-xs"
                   variant="secondary"
                   onClick={async () => {
+                    try {
+                      await setUserVerified(u.id, !u.is_verified, user!.id)
+                      load(search)
+                    } catch (e) {
+                      console.error(e)
+                      alert('Não foi possível alterar o selo.')
+                    }
+                  }}
+                >
+                  {u.is_verified ? 'Remover selo' : 'Verificar'}
+                </Button>
+                <Button
+                  className="!py-1 !px-2 text-xs"
+                  variant="secondary"
+                  onClick={async () => {
                     await setUserStatus(u.id, 'banned', 'Ban', user?.id)
                     load(search)
                   }}
@@ -99,7 +118,7 @@ export default function AdminUsers() {
                       load(search)
                     }}
                   >
-                    {['player', 'captain', 'organizer', 'moderator', 'admin'].map((r) => (
+                    {['player', 'captain', 'organizer', 'moderator'].map((r) => (
                       <option key={r} value={r}>{r}</option>
                     ))}
                   </select>

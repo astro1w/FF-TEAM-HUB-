@@ -48,7 +48,7 @@ export async function setUserStatus(userId: string, status: 'active' | 'suspende
 }
 
 export async function setUserRole(userId: string, role: string, adminId: string) {
-  const { error } = await supabase.from('profiles').update({ role: role as never }).eq('id', userId)
+  const { error } = await supabase.from('profiles').update({ role }).eq('id', userId)
   if (error) throw error
   await supabase.from('admin_logs').insert({
     admin_id: adminId,
@@ -75,4 +75,16 @@ export async function updateReportStatus(id: string, status: string, reviewerId:
     .update({ status, reviewed_by: reviewerId })
     .eq('id', id)
   if (error) throw error
+}
+
+export async function setUserVerified(userId: string, verified: boolean, adminId: string) {
+  const { error } = await supabase.from('profiles').update({ is_verified: verified }).eq('id', userId)
+  if (error) throw error
+  await supabase.from('admin_logs').insert({
+    admin_id: adminId,
+    action: verified ? 'verify_user' : 'unverify_user',
+    target_type: 'profile',
+    target_id: userId,
+    meta: { verified }
+  })
 }
