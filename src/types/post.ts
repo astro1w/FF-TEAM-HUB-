@@ -7,6 +7,7 @@ export interface Post {
   createdAt: string
   authorNickname?: string
   authorAvatar?: string | null
+  authorVerified?: boolean
   likeCount?: number
   commentCount?: number
   likedByMe?: boolean

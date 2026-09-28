@@ -6,6 +6,10 @@ import LoadingState from '@/components/ui/LoadingState'
 import EmptyState from '@/components/ui/EmptyState'
 import ErrorState from '@/components/ui/ErrorState'
 import Button from '@/components/ui/Button'
+import Avatar from '@/components/ui/Avatar'
+import VerifiedBadge from '@/components/ui/VerifiedBadge'
+import ImagePicker from '@/components/ui/ImagePicker'
+import { uploadImage, IMAGE_PRESETS } from '@/services/storageService'
 
 export default function Feed() {
   const { user } = useAuth()
@@ -14,6 +18,7 @@ export default function Feed() {
   const [error, setError] = useState<string | null>(null)
   const [body, setBody] = useState('')
   const [posting, setPosting] = useState(false)
+  const [image, setImage] = useState<File | null>(null)
 
   async function load() {
     setLoading(true)
@@ -34,10 +39,15 @@ export default function Feed() {
     if (!user || !body.trim()) return
     setPosting(true)
     try {
-      const p = await createPost(user.id, body)
+      const imageUrl = image
+        ? await uploadImage('post-media', user.id, image, IMAGE_PRESETS.post)
+        : undefined
+      const p = await createPost(user.id, body, imageUrl)
       setPosts((prev) => [p, ...prev])
       setBody('')
+      setImage(null)
     } catch (err) {
+      console.error(err)
       alert('Erro ao publicar.')
     } finally {
       setPosting(false)
@@ -78,6 +88,7 @@ export default function Feed() {
           onChange={(e) => setBody(e.target.value)}
           maxLength={2000}
         />
+        <ImagePicker label="Imagem (opcional)" file={image} onChange={setImage} shape="wide" />
         <Button type="submit" loading={posting} disabled={!body.trim()} className="w-full">
           Publicar
         </Button>
@@ -93,11 +104,12 @@ export default function Feed() {
           {posts.map((p) => (
             <article key={p.id} className="card">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-8 h-8 rounded-full bg-base-700 flex items-center justify-center text-xs font-bold">
-                  {(p.authorNickname ?? '?').slice(0, 2).toUpperCase()}
-                </div>
+                <Avatar src={p.authorAvatar} name={p.authorNickname} size={32} />
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate">{p.authorNickname}</p>
+                  <p className="font-medium text-sm truncate flex items-center gap-1">
+                    <span className="truncate">{p.authorNickname}</span>
+                    {p.authorVerified && <VerifiedBadge size={14} />}
+                  </p>
                   <p className="text-[10px] text-white/40">
                     {new Date(p.createdAt).toLocaleString('pt-MZ')}
                   </p>

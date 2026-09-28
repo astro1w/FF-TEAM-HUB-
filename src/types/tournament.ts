@@ -33,6 +33,7 @@ export interface CreateTournamentInput {
   rules?: string
   prize?: string
   pointsPerKill?: number
+  bannerUrl?: string
 }
 
 export interface Match {

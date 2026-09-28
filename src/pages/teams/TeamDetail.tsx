@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { getTeam, getTeamMembers } from '@/services/teamService'
+import { getTeam, getTeamMembers, updateTeamLogo } from '@/services/teamService'
+import { uploadImage, IMAGE_PRESETS } from '@/services/storageService'
+import { validateImageFile } from '@/lib/imageUtils'
 import type { Team, TeamMember } from '@/types/team'
 import LoadingState from '@/components/ui/LoadingState'
 import ErrorState from '@/components/ui/ErrorState'
@@ -15,6 +17,32 @@ export default function TeamDetail() {
   const [members, setMembers] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const logoInputRef = useRef<HTMLInputElement>(null)
+  const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [logoError, setLogoError] = useState<string | null>(null)
+
+  async function handleLogo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !team) return
+    const problem = validateImageFile(file)
+    if (problem) {
+      setLogoError(problem)
+      return
+    }
+    setUploadingLogo(true)
+    setLogoError(null)
+    try {
+      const url = await uploadImage('team-logos', team.id, file, IMAGE_PRESETS.logo)
+      await updateTeamLogo(team.id, url)
+      setTeam({ ...team, logoUrl: url })
+    } catch (err) {
+      console.error(err)
+      setLogoError('Não foi possível enviar o logo.')
+    } finally {
+      setUploadingLogo(false)
+    }
+  }
 
   useEffect(() => {
     if (!id) return
@@ -56,11 +84,26 @@ export default function TeamDetail() {
     <div className="px-4 pt-6 pb-24 max-w-2xl mx-auto">
       <div className="card mb-4">
         <div className="flex items-start gap-4">
-          <div className="w-16 h-16 rounded-xl bg-base-700 flex items-center justify-center text-xl font-black text-accent shrink-0">
-            {team.logoUrl ? (
-              <img src={team.logoUrl} alt="" className="w-full h-full object-cover rounded-xl" />
-            ) : (
-              team.tag.slice(0, 2)
+          <div className="shrink-0 flex flex-col items-center gap-1">
+            <div className="w-16 h-16 rounded-xl bg-base-700 flex items-center justify-center text-xl font-black text-accent overflow-hidden">
+              {team.logoUrl ? (
+                <img src={team.logoUrl} alt={`Logo de ${team.name}`} className="w-full h-full object-cover" />
+              ) : (
+                team.tag.slice(0, 2)
+              )}
+            </div>
+            {isCaptain && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  disabled={uploadingLogo}
+                  className="text-[10px] text-white/50 underline"
+                >
+                  {uploadingLogo ? 'A enviar…' : 'Alterar logo'}
+                </button>
+                <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={handleLogo} />
+              </>
             )}
           </div>
           <div className="min-w-0">

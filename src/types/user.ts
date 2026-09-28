@@ -16,6 +16,7 @@ export interface Profile {
   role: UserRole
   status: AccountStatus
   onboardingCompleted: boolean
+  isVerified: boolean
   createdAt: string
 }
 

@@ -72,6 +72,7 @@ export async function createTournament(input: CreateTournamentInput, organizerId
       rules: input.rules?.trim() || null,
       prize: input.prize?.trim() || null,
       points_per_kill: input.pointsPerKill ?? 1,
+      banner_url: input.bannerUrl || null,
       organizer_id: organizerId,
       status: 'open'
     })

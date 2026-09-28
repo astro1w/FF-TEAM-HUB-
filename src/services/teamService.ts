@@ -143,3 +143,8 @@ export async function getMyTeams(userId: string): Promise<Team[]> {
     .map((row: any) => (row.teams ? rowToTeam(row.teams) : null))
     .filter(Boolean) as Team[]
 }
+
+export async function updateTeamLogo(teamId: string, logoUrl: string): Promise<void> {
+  const { error } = await supabase.from('teams').update({ logo_url: logoUrl }).eq('id', teamId)
+  if (error) throw error
+}

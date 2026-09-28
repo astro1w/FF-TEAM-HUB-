@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { createTeam } from '@/services/teamService'
+import { createTeam, updateTeamLogo } from '@/services/teamService'
+import { uploadImage, IMAGE_PRESETS } from '@/services/storageService'
+import ImagePicker from '@/components/ui/ImagePicker'
 import { MOZAMBIQUE_PROVINCES } from '@/types/user'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
@@ -13,6 +15,7 @@ export default function CreateTeam() {
   const [tag, setTag] = useState('')
   const [province, setProvince] = useState('')
   const [description, setDescription] = useState('')
+  const [logo, setLogo] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,6 +45,15 @@ export default function CreateTeam() {
         },
         user.id
       )
+      if (logo) {
+        try {
+          const url = await uploadImage('team-logos', team.id, logo, IMAGE_PRESETS.logo)
+          await updateTeamLogo(team.id, url)
+        } catch (logoErr) {
+          // A Team já foi criada; o logo pode ser adicionado depois na página da Team.
+          console.error('Erro ao enviar logo:', logoErr)
+        }
+      }
       await refreshProfile()
       navigate(`/teams/${team.id}`, { replace: true })
     } catch (err: any) {
@@ -61,6 +73,7 @@ export default function CreateTeam() {
       <p className="text-white/50 text-sm mb-6">Define a identidade da tua squad.</p>
 
       <form onSubmit={handleSubmit}>
+        <ImagePicker label="Logo (opcional)" file={logo} onChange={setLogo} />
         <Input
           label="Nome"
           value={name}

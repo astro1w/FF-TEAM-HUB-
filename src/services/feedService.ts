@@ -12,6 +12,7 @@ function rowToPost(row: any, userId?: string): Post {
     createdAt: row.created_at,
     authorNickname: row.profiles?.nickname,
     authorAvatar: row.profiles?.avatar_url,
+    authorVerified: row.profiles?.is_verified ?? false,
     likeCount: Array.isArray(likes) ? likes.length : row.like_count ?? 0,
     commentCount: row.comments?.[0]?.count ?? row.comment_count ?? 0,
     likedByMe: userId ? likes.some((l: any) => l.user_id === userId) : false
@@ -21,7 +22,7 @@ function rowToPost(row: any, userId?: string): Post {
 export async function listPosts(userId?: string): Promise<Post[]> {
   const { data, error } = await supabase
     .from('posts')
-    .select('*, profiles(nickname, avatar_url), likes(user_id), comments(count)')
+    .select('*, profiles(nickname, avatar_url, is_verified), likes(user_id), comments(count)')
     .order('created_at', { ascending: false })
     .limit(30)
   if (error) throw error
@@ -32,7 +33,7 @@ export async function createPost(authorId: string, body: string, imageUrl?: stri
   const { data, error } = await supabase
     .from('posts')
     .insert({ author_id: authorId, body: body.trim(), image_url: imageUrl || null })
-    .select('*, profiles(nickname, avatar_url)')
+    .select('*, profiles(nickname, avatar_url, is_verified)')
     .single()
   if (error) throw error
   return rowToPost(data)

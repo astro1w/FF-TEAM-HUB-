@@ -1,9 +1,41 @@
+import React, { useRef, useState } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import Button from '@/components/ui/Button'
+import Avatar from '@/components/ui/Avatar'
+import VerifiedBadge from '@/components/ui/VerifiedBadge'
 import { Link } from 'react-router-dom'
+import { uploadImage, IMAGE_PRESETS } from '@/services/storageService'
+import { updateAvatar } from '@/services/profileService'
+import { validateImageFile } from '@/lib/imageUtils'
 
 export default function Profile() {
-  const { profile, signOut, user } = useAuth()
+  const { profile, signOut, user, refreshProfile } = useAuth()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
+  const [photoError, setPhotoError] = useState<string | null>(null)
+
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !user) return
+    const problem = validateImageFile(file)
+    if (problem) {
+      setPhotoError(problem)
+      return
+    }
+    setUploading(true)
+    setPhotoError(null)
+    try {
+      const url = await uploadImage('avatars', user.id, file, IMAGE_PRESETS.avatar)
+      await updateAvatar(user.id, url)
+      await refreshProfile()
+    } catch (err) {
+      console.error(err)
+      setPhotoError('Não foi possível enviar a foto. Tenta novamente.')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   if (!profile) {
     return <div className="px-4 pt-10 text-center text-white/50">Perfil não carregado.</div>
@@ -12,14 +44,24 @@ export default function Profile() {
   return (
     <div className="px-4 pt-6 pb-24 max-w-md mx-auto">
       <div className="card text-center mb-4">
-        <div className="w-20 h-20 rounded-full bg-base-700 mx-auto flex items-center justify-center text-2xl font-black text-accent">
-          {profile.avatarUrl ? (
-            <img src={profile.avatarUrl} alt="" className="w-full h-full object-cover rounded-full" />
-          ) : (
-            profile.nickname.slice(0, 2).toUpperCase()
-          )}
-        </div>
-        <h1 className="text-xl font-bold mt-3">{profile.nickname}</h1>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+          className="relative mx-auto block rounded-full"
+          aria-label="Alterar foto de perfil"
+        >
+          <Avatar src={profile.avatarUrl} name={profile.nickname} size={88} />
+          <span className="absolute -bottom-1 -right-1 bg-accent text-white text-xs rounded-full w-7 h-7 flex items-center justify-center border-2 border-base-800">
+            {uploading ? '…' : '📷'}
+          </span>
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
+        {photoError && <p className="text-accent-soft text-xs mt-2">{photoError}</p>}
+        <h1 className="text-xl font-bold mt-3 flex items-center justify-center gap-1.5">
+          {profile.nickname}
+          {profile.isVerified && <VerifiedBadge size={18} />}
+        </h1>
         {profile.freeFireId && (
           <p className="text-xs text-white/40 font-mono mt-0.5">FF ID: {profile.freeFireId}</p>
         )}

@@ -5,6 +5,8 @@ import { createTournament } from '@/services/tournamentService'
 import type { TournamentFormat } from '@/types/tournament'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
+import ImagePicker from '@/components/ui/ImagePicker'
+import { uploadImage, IMAGE_PRESETS } from '@/services/storageService'
 
 const FORMATS: TournamentFormat[] = ['Battle Royale', 'Liga', 'Eliminação', 'Grupos + Final']
 
@@ -20,6 +22,7 @@ export default function CreateTournament() {
   const [rules, setRules] = useState('')
   const [prize, setPrize] = useState('')
   const [pointsPerKill, setPointsPerKill] = useState(1)
+  const [banner, setBanner] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -46,9 +49,12 @@ export default function CreateTournament() {
     setLoading(true)
     setError(null)
     try {
+      const bannerUrl = banner
+        ? await uploadImage('tournament-banners', user.id, banner, IMAGE_PRESETS.banner)
+        : undefined
       const t = await createTournament({
         name, description, startsAt, endsAt: endsAt || undefined,
-        maxTeams, format, rules, prize, pointsPerKill
+        maxTeams, format, rules, prize, pointsPerKill, bannerUrl
       }, user.id)
       navigate(`/tournaments/${t.id}`, { replace: true })
     } catch (err) {
@@ -63,6 +69,7 @@ export default function CreateTournament() {
     <div className="px-4 pt-6 pb-24 max-w-md mx-auto">
       <h1 className="text-xl font-bold mb-6">Criar Torneio</h1>
       <form onSubmit={handleSubmit}>
+        <ImagePicker label="Banner (opcional)" file={banner} onChange={setBanner} shape="wide" />
         <Input label="Nome" value={name} onChange={(e) => setName(e.target.value)} placeholder="MZ Community Cup" required />
         <div className="mb-4">
           <label className="label-text">Descrição</label>

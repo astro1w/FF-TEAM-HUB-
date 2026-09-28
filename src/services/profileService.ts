@@ -21,6 +21,7 @@ function rowToProfile(row: ProfileRow): Profile {
     role: row.role,
     status: row.status,
     onboardingCompleted: row.onboarding_completed,
+    isVerified: row.is_verified ?? false,
     createdAt: row.created_at
   }
 }
@@ -81,5 +82,10 @@ export async function completeOnboarding(
     })
     .eq('id', userId)
 
+  if (error) throw error
+}
+
+export async function updateAvatar(userId: string, avatarUrl: string) {
+  const { error } = await supabase.from('profiles').update({ avatar_url: avatarUrl }).eq('id', userId)
   if (error) throw error
 }
