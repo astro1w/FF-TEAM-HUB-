@@ -1,8 +1,9 @@
+import React from 'react'
 import { NavLink } from 'react-router-dom'
 
 const items = [
   { to: '/home', label: 'Home', icon: '🏠' },
-  { to: '/explore', label: 'Explorar', icon: '🔎' },
+  { to: '/feed', label: 'Feed', icon: '💬' },
   { to: '/teams', label: 'Teams', icon: '👥' },
   { to: '/tournaments', label: 'Torneios', icon: '🏆' },
   { to: '/profile', label: 'Perfil', icon: '👤' }

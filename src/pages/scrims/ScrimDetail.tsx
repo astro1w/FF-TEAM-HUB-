@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { getScrim, joinScrim, listScrimTeams } from '@/services/scrimService'
 import { getMyTeams } from '@/services/teamService'

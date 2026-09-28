@@ -4,7 +4,7 @@ import type { Database } from '@/types/database'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
 
-function rowToProfile(row: ProfileRow): Profile {
+export function rowToProfile(row: ProfileRow): Profile {
   return {
     id: row.id,
     nickname: row.nickname,
@@ -22,6 +22,8 @@ function rowToProfile(row: ProfileRow): Profile {
     status: row.status,
     onboardingCompleted: row.onboarding_completed,
     isVerified: row.is_verified ?? false,
+    competitiveId: row.competitive_id,
+    countryCode: row.country_code ?? 'MZ',
     createdAt: row.created_at
   }
 }

@@ -7,6 +7,7 @@ import { Link } from 'react-router-dom'
 import { uploadImage, IMAGE_PRESETS } from '@/services/storageService'
 import { updateAvatar } from '@/services/profileService'
 import { validateImageFile } from '@/lib/imageUtils'
+import { ROLE_LABELS } from '@/types/user'
 
 export default function Profile() {
   const { profile, signOut, user, refreshProfile } = useAuth()
@@ -62,8 +63,9 @@ export default function Profile() {
           {profile.nickname}
           {profile.isVerified && <VerifiedBadge size={18} />}
         </h1>
+        <p className="text-xs text-white/40 font-mono mt-0.5">ID: {profile.competitiveId}</p>
         {profile.freeFireId && (
-          <p className="text-xs text-white/40 font-mono mt-0.5">FF ID: {profile.freeFireId}</p>
+          <p className="text-xs text-white/40 font-mono">FF UID: {profile.freeFireId}</p>
         )}
         <p className="text-sm text-white/50 mt-1">
           🇲🇿 {profile.province ? `${profile.province}, ` : ''}{profile.country}
@@ -71,12 +73,12 @@ export default function Profile() {
         <div className="flex flex-wrap justify-center gap-1.5 mt-3">
           {profile.primaryRole && (
             <span className="text-[10px] font-semibold bg-accent/20 text-accent-soft px-2 py-0.5 rounded-full">
-              {profile.primaryRole}
+              {ROLE_LABELS[profile.primaryRole]}
             </span>
           )}
           {profile.secondaryRole && (
             <span className="text-[10px] bg-base-700 text-white/60 px-2 py-0.5 rounded-full">
-              {profile.secondaryRole}
+              {ROLE_LABELS[profile.secondaryRole]}
             </span>
           )}
           {profile.skillLevel && (

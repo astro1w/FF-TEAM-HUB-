@@ -1,3 +1,5 @@
+import React from 'react'
+
 export default function LoadingState({ message = 'A carregar...', fullScreen = false }: { message?: string; fullScreen?: boolean }) {
   return (
     <div className={`flex flex-col items-center justify-center gap-3 text-white/60 ${fullScreen ? 'h-screen' : 'py-12'}`}>

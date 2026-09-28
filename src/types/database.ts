@@ -18,6 +18,8 @@ export type NotificationType =
   | 'match_reminder'
   | 'message_received'
   | 'team_update'
+  | 'new_follower'
+  | 'post_reply'
 
 export interface Database {
   public: {
@@ -40,6 +42,8 @@ export interface Database {
           status: AccountStatus
           onboarding_completed: boolean
           is_verified: boolean
+          country_code: string
+          competitive_id: string
           created_at: string
           updated_at: string
         }

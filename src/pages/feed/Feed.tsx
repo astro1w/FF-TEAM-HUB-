@@ -1,139 +1,155 @@
-import React, { useEffect, useState } from 'react'
-import { listPosts, createPost, toggleLike, deletePost } from '@/services/feedService'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { createPost, listTimeline, PAGE_SIZE, type TimelineTab } from '@/services/feedService'
+import { uploadImage, IMAGE_PRESETS } from '@/services/storageService'
 import type { Post } from '@/types/post'
 import { useAuth } from '@/hooks/useAuth'
+import { usePostActions } from '@/hooks/usePostActions'
+import Composer from '@/components/feed/Composer'
+import PostItem from '@/components/feed/PostItem'
 import LoadingState from '@/components/ui/LoadingState'
 import EmptyState from '@/components/ui/EmptyState'
 import ErrorState from '@/components/ui/ErrorState'
-import Button from '@/components/ui/Button'
-import Avatar from '@/components/ui/Avatar'
-import VerifiedBadge from '@/components/ui/VerifiedBadge'
-import ImagePicker from '@/components/ui/ImagePicker'
-import { uploadImage, IMAGE_PRESETS } from '@/services/storageService'
+import { useNavigate } from 'react-router-dom'
+
+const TABS: { id: TimelineTab; label: string }[] = [
+  { id: 'foryou', label: 'Para ti' },
+  { id: 'following', label: 'A seguir' }
+]
 
 export default function Feed() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const navigate = useNavigate()
+  const [tab, setTab] = useState<TimelineTab>('foryou')
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [body, setBody] = useState('')
-  const [posting, setPosting] = useState(false)
-  const [image, setImage] = useState<File | null>(null)
+  const request = useRef(0)
+  const actions = usePostActions(setPosts)
 
-  async function load() {
+  const load = useCallback(async () => {
+    if (!user) return
+    const id = ++request.current
     setLoading(true)
+    setError(null)
     try {
-      setPosts(await listPosts(user?.id))
+      const data = await listTimeline({ userId: user.id, tab })
+      if (id !== request.current) return // resposta antiga (mudaste de separador)
+      setPosts(data)
+      setHasMore(data.length === PAGE_SIZE)
     } catch (e) {
       console.error(e)
-      setError('Não foi possível carregar o feed.')
+      if (id === request.current) setError('Não foi possível carregar o feed.')
     } finally {
-      setLoading(false)
+      if (id === request.current) setLoading(false)
     }
-  }
+  }, [user?.id, tab])
 
-  useEffect(() => { load() }, [user?.id])
+  useEffect(() => {
+    load()
+  }, [load])
 
-  async function handlePost(e: React.FormEvent) {
-    e.preventDefault()
-    if (!user || !body.trim()) return
-    setPosting(true)
+  async function loadMore() {
+    if (!user || posts.length === 0) return
+    setLoadingMore(true)
     try {
-      const imageUrl = image
-        ? await uploadImage('post-media', user.id, image, IMAGE_PRESETS.post)
-        : undefined
-      const p = await createPost(user.id, body, imageUrl)
-      setPosts((prev) => [p, ...prev])
-      setBody('')
-      setImage(null)
-    } catch (err) {
-      console.error(err)
-      alert('Erro ao publicar.')
+      const data = await listTimeline({ userId: user.id, tab, before: posts[posts.length - 1].createdAt })
+      setPosts((prev) => [...prev, ...data.filter((d) => !prev.some((p) => p.id === d.id))])
+      setHasMore(data.length === PAGE_SIZE)
+    } catch (e) {
+      console.error(e)
     } finally {
-      setPosting(false)
+      setLoadingMore(false)
     }
   }
 
-  async function handleLike(post: Post) {
+  async function handlePost(body: string, image: File | null) {
     if (!user) return
-    await toggleLike(post.id, user.id, !!post.likedByMe)
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.id === post.id
-          ? {
-              ...p,
-              likedByMe: !p.likedByMe,
-              likeCount: (p.likeCount ?? 0) + (p.likedByMe ? -1 : 1)
-            }
-          : p
-      )
-    )
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm('Eliminar este post?')) return
-    await deletePost(id)
-    setPosts((prev) => prev.filter((p) => p.id !== id))
+    const imageUrl = image ? await uploadImage('post-media', user.id, image, IMAGE_PRESETS.post) : undefined
+    const created = await createPost(user.id, body, imageUrl)
+    setPosts((prev) => [created, ...prev])
   }
 
   return (
-    <div className="px-4 pt-6 pb-24 max-w-2xl mx-auto">
-      <h1 className="text-xl font-bold mb-4">Feed</h1>
-
-      <form onSubmit={handlePost} className="card mb-4 space-y-2">
-        <textarea
-          className="input-field min-h-[72px] resize-none"
-          placeholder="Partilha um resultado, highlight ou recrutamento..."
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          maxLength={2000}
-        />
-        <ImagePicker label="Imagem (opcional)" file={image} onChange={setImage} shape="wide" />
-        <Button type="submit" loading={posting} disabled={!body.trim()} className="w-full">
-          Publicar
-        </Button>
-      </form>
-
-      {loading && <LoadingState />}
-      {error && <ErrorState message={error} onRetry={load} />}
-      {!loading && !error && posts.length === 0 && (
-        <EmptyState title="Feed vazio." description="Sê o primeiro a publicar." />
-      )}
-      {!loading && posts.length > 0 && (
-        <div className="space-y-3">
-          {posts.map((p) => (
-            <article key={p.id} className="card">
-              <div className="flex items-center gap-2 mb-2">
-                <Avatar src={p.authorAvatar} name={p.authorNickname} size={32} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm truncate flex items-center gap-1">
-                    <span className="truncate">{p.authorNickname}</span>
-                    {p.authorVerified && <VerifiedBadge size={14} />}
-                  </p>
-                  <p className="text-[10px] text-white/40">
-                    {new Date(p.createdAt).toLocaleString('pt-MZ')}
-                  </p>
-                </div>
-                {user?.id === p.authorId && (
-                  <button type="button" className="text-xs text-white/30" onClick={() => handleDelete(p.id)}>
-                    Eliminar
-                  </button>
-                )}
-              </div>
-              <p className="text-sm whitespace-pre-wrap leading-relaxed">{p.body}</p>
-              {p.imageUrl && (
-                <img src={p.imageUrl} alt="" className="mt-2 rounded-xl w-full max-h-64 object-cover" />
-              )}
-              <div className="flex gap-4 mt-3 text-xs text-white/50">
-                <button type="button" onClick={() => handleLike(p)} className={p.likedByMe ? 'text-accent-soft' : ''}>
-                  {p.likedByMe ? '♥' : '♡'} {p.likeCount ?? 0}
-                </button>
-                <span>💬 {p.commentCount ?? 0}</span>
-              </div>
-            </article>
+    <div className="pb-24 max-w-xl mx-auto">
+      <header className="sticky top-0 z-30 bg-base-900/90 backdrop-blur border-b border-base-700">
+        <div role="tablist" className="flex">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              role="tab"
+              aria-selected={tab === t.id}
+              onClick={() => setTab(t.id)}
+              className={`flex-1 py-3.5 text-[15px] font-semibold border-b-2 transition-colors ${
+                tab === t.id ? 'border-white text-white' : 'border-transparent text-white/40'
+              }`}
+            >
+              {t.label}
+            </button>
           ))}
         </div>
+      </header>
+
+      <Composer
+        avatarUrl={profile?.avatarUrl}
+        nickname={profile?.nickname}
+        placeholder="O que há de novo?"
+        onSubmit={handlePost}
+      />
+
+      {loading && <LoadingState />}
+      {error && (
+        <div className="px-4 pt-4">
+          <ErrorState message={error} onRetry={load} />
+        </div>
       )}
+
+      {!loading && !error && posts.length === 0 && (
+        <div className="px-4 pt-4">
+          {tab === 'following' ? (
+            <EmptyState
+              title="Ainda não há publicações de quem segues."
+              description="Segue jogadores para veres aqui os posts deles."
+              actionLabel="Ver o feed geral"
+              onAction={() => setTab('foryou')}
+            />
+          ) : (
+            <EmptyState title="O feed ainda está vazio." description="Sê o primeiro a publicar." />
+          )}
+        </div>
+      )}
+
+      {!loading &&
+        posts.map((p) => (
+          <PostItem
+            key={p.id}
+            post={p}
+            currentUserId={actions.currentUserId}
+            canModerate={actions.canModerate}
+            onLike={actions.onLike}
+            onRepost={actions.onRepost}
+            onShare={actions.onShare}
+            onDelete={actions.onDelete}
+            onReport={actions.onReport}
+            onReply={(post) => navigate(`/feed/${post.id}`)}
+          />
+        ))}
+
+      {!loading && hasMore && (
+        <div className="p-4 text-center">
+          <button
+            type="button"
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="text-sm text-white/60 underline disabled:opacity-50"
+          >
+            {loadingMore ? 'A carregar…' : 'Carregar mais'}
+          </button>
+        </div>
+      )}
+
+      {actions.overlays}
     </div>
   )
 }
