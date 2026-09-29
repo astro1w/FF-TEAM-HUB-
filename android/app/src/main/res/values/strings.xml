@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FF TEAM HUB</string>
+    <string name="title_activity_main">FF TEAM HUB</string>
+    <string name="package_name">mz.ffteamhub.app</string>
+    <string name="custom_url_scheme">mz.ffteamhub.app</string>
+</resources>
