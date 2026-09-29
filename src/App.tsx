@@ -6,6 +6,8 @@ import Register from '@/pages/auth/Register'
 import Onboarding from '@/pages/onboarding/Onboarding'
 import Home from '@/pages/home/Home'
 import PlaceholderPage from '@/pages/PlaceholderPage'
+import Settings from '@/pages/settings/Settings'
+import BlockedPlayers from '@/pages/settings/BlockedPlayers'
 import Profile from '@/pages/players/Profile'
 import Teams from '@/pages/teams/Teams'
 import CreateTeam from '@/pages/teams/CreateTeam'
@@ -77,7 +79,8 @@ export default function App() {
             <Route path="/messages/:id" element={<Chat />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/profile" element={<Profile />} />
-            <Route path="/settings" element={<PlaceholderPage title="Definições" />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/settings/blocked" element={<BlockedPlayers />} />
 
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/users" element={<AdminUsers />} />

@@ -10,7 +10,7 @@ interface AuthContextValue {
   profile: Profile | null
   loading: boolean
   refreshProfile: () => Promise<void>
-  signOut: () => Promise<void>
+  signOut: (scope?: 'global' | 'local') => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -59,9 +59,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  async function signOut() {
-    await supabase.auth.signOut()
-    setProfile(null)
+  async function signOut(scope: 'global' | 'local' = 'global') {
+    await supabase.auth.signOut({ scope })
+    if (scope !== 'local' || !session) setProfile(null)
   }
 
   const value: AuthContextValue = {

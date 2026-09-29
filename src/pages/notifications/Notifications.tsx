@@ -1,33 +1,80 @@
-import React, { useEffect, useState } from 'react'
-import { listNotifications, markRead, markAllRead, type Notification } from '@/services/notificationService'
+import React, { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import {
+  listNotifications,
+  markRead,
+  markAllRead,
+  subscribeNotifications,
+  type Notification
+} from '@/services/notificationService'
+import { timeAgo } from '@/utils/time'
 import { useAuth } from '@/hooks/useAuth'
 import LoadingState from '@/components/ui/LoadingState'
 import EmptyState from '@/components/ui/EmptyState'
-import Button from '@/components/ui/Button'
+import ErrorState from '@/components/ui/ErrorState'
+
+const ICONS: Partial<Record<Notification['type'], string>> = {
+  application_received: '📝',
+  application_accepted: '✅',
+  application_rejected: '❌',
+  tryout_created: '🎯',
+  scrim_invitation: '⚔️',
+  tournament_update: '🏆',
+  match_reminder: '⏰',
+  message_received: '💬',
+  team_update: '👥',
+  new_follower: '➕',
+  post_reply: '↩️'
+}
 
 export default function Notifications() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [items, setItems] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    if (!user) return
+    setLoading(true)
+    setError(null)
+    try {
+      setItems(await listNotifications(user.id))
+    } catch (e) {
+      console.error(e)
+      setError('Não foi possível carregar as notificações.')
+    } finally {
+      setLoading(false)
+    }
+  }, [user?.id])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   useEffect(() => {
     if (!user) return
-    listNotifications(user.id)
-      .then(setItems)
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [user])
+    return subscribeNotifications(user.id, load)
+  }, [user?.id, load])
 
-  async function handleRead(n: Notification) {
-    if (n.read) return
-    await markRead(n.id)
-    setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, read: true } : i)))
+  async function handleOpen(n: Notification) {
+    if (!n.read) {
+      setItems((prev) => prev.map((i) => (i.id === n.id ? { ...i, read: true } : i)))
+      markRead(n.id).catch(console.error)
+    }
+    if (n.link) navigate(n.link)
   }
 
   async function handleAll() {
     if (!user) return
-    await markAllRead(user.id)
-    setItems((prev) => prev.map((i) => ({ ...i, read: true })))
+    const prev = items
+    setItems((cur) => cur.map((i) => ({ ...i, read: true })))
+    try {
+      await markAllRead(user.id)
+    } catch (e) {
+      console.error(e)
+      setItems(prev)
+    }
   }
 
   return (
@@ -41,23 +88,28 @@ export default function Notifications() {
         )}
       </div>
       {loading && <LoadingState />}
-      {!loading && items.length === 0 && (
-        <EmptyState title="Sem notificações." description="Candidaturas e updates aparecem aqui." />
+      {error && <ErrorState message={error} onRetry={load} />}
+      {!loading && !error && items.length === 0 && (
+        <EmptyState title="Sem notificações." description="Interações, candidaturas e updates aparecem aqui." />
       )}
-      {!loading && items.length > 0 && (
+      {!loading && !error && items.length > 0 && (
         <div className="space-y-2">
           {items.map((n) => (
             <button
               key={n.id}
               type="button"
-              onClick={() => handleRead(n)}
-              className={`card w-full text-left !py-3 ${!n.read ? 'border-accent/30' : ''}`}
+              onClick={() => handleOpen(n)}
+              className={`card w-full text-left !py-3 flex gap-3 ${!n.read ? 'border-accent/30' : ''}`}
             >
-              <p className="font-medium text-sm">{n.title}</p>
-              {n.body && <p className="text-xs text-white/50 mt-0.5">{n.body}</p>}
-              <p className="text-[10px] text-white/30 mt-1">
-                {new Date(n.createdAt).toLocaleString('pt-MZ')}
-              </p>
+              <span className="text-xl leading-none shrink-0" aria-hidden="true">
+                {ICONS[n.type] ?? '🔔'}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium text-sm">{n.title}</p>
+                {n.body && <p className="text-xs text-white/50 mt-0.5 line-clamp-2">{n.body}</p>}
+                <p className="text-[10px] text-white/30 mt-1">{timeAgo(n.createdAt)}</p>
+              </div>
+              {!n.read && <span className="w-2 h-2 rounded-full bg-accent shrink-0 mt-1.5" aria-hidden="true" />}
             </button>
           ))}
         </div>

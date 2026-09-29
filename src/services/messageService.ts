@@ -1,134 +1,154 @@
 import { supabase } from '@/lib/supabase'
-import type { Conversation, Message } from '@/types/message'
+import type { Conversation, ConversationMeta, Message } from '@/types/message'
 
-export async function listConversations(userId: string): Promise<Conversation[]> {
-  const { data, error } = await supabase
-    .from('conversation_members')
-    .select('conversation_id, conversations(*)')
-    .eq('profile_id', userId)
-  if (error) throw error
+export const MESSAGE_PAGE_SIZE = 50
 
-  const convs: Conversation[] = []
-  for (const row of data ?? []) {
-    const c = (row as any).conversations
-    if (!c) continue
-    // get other members
-    const { data: members } = await supabase
-      .from('conversation_members')
-      .select('profile_id, profiles(nickname)')
-      .eq('conversation_id', c.id)
-      .neq('profile_id', userId)
+// O cliente tipado ainda não conhece as funções SQL da migration 0014.
+const rpc = (name: string, args?: Record<string, unknown>) => (supabase as any).rpc(name, args)
 
-    const { data: lastMsgs } = await supabase
-      .from('messages')
-      .select('body, created_at')
-      .eq('conversation_id', c.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-
-    convs.push({
-      id: c.id,
-      isGroup: c.is_group,
-      title: c.title,
-      teamId: c.team_id,
-      createdAt: c.created_at,
-      otherNickname: (members as any)?.[0]?.profiles?.nickname,
-      lastMessage: lastMsgs?.[0]?.body,
-      lastMessageAt: lastMsgs?.[0]?.created_at
-    })
-  }
-  return convs.sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''))
-}
-
-export async function getOrCreateDm(userId: string, otherId: string): Promise<string> {
-  // Find existing DM
-  const { data: myConvs } = await supabase
-    .from('conversation_members')
-    .select('conversation_id')
-    .eq('profile_id', userId)
-
-  if (myConvs) {
-    for (const mc of myConvs) {
-      const { data: members } = await supabase
-        .from('conversation_members')
-        .select('profile_id, conversations(is_group)')
-        .eq('conversation_id', mc.conversation_id)
-      if (
-        members &&
-        members.length === 2 &&
-        members.some((m: any) => m.profile_id === otherId) &&
-        !(members as any)[0]?.conversations?.is_group
-      ) {
-        return mc.conversation_id
-      }
-    }
-  }
-
-  const { data: conv, error } = await supabase
-    .from('conversations')
-    .insert({ is_group: false })
-    .select()
-    .single()
-  if (error) throw error
-
-  await supabase.from('conversation_members').insert([
-    { conversation_id: conv.id, profile_id: userId },
-    { conversation_id: conv.id, profile_id: otherId }
-  ])
-  return conv.id
-}
-
-export async function listMessages(conversationId: string): Promise<Message[]> {
-  const { data, error } = await supabase
-    .from('messages')
-    .select('*, profiles:sender_id(nickname)')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
-    .limit(100)
-  if (error) throw error
-  return (data ?? []).map((r: any) => ({
+function rowToMessage(r: any): Message {
+  return {
     id: r.id,
     conversationId: r.conversation_id,
     senderId: r.sender_id,
     body: r.body,
     createdAt: r.created_at,
-    senderNickname: r.profiles?.nickname
-  }))
-}
-
-export async function sendMessage(conversationId: string, senderId: string, body: string): Promise<Message> {
-  const { data, error } = await supabase
-    .from('messages')
-    .insert({ conversation_id: conversationId, sender_id: senderId, body: body.trim() })
-    .select()
-    .single()
-  if (error) throw error
-  return {
-    id: data.id,
-    conversationId: data.conversation_id,
-    senderId: data.sender_id,
-    body: data.body,
-    createdAt: data.created_at
+    clientId: r.client_id ?? undefined,
+    status: 'sent'
   }
 }
 
-export function subscribeMessages(conversationId: string, onMessage: (msg: Message) => void) {
+/** Conversas do utilizador (a função SQL já ordena pela atividade mais recente e conta as não lidas). */
+export async function listConversations(): Promise<Conversation[]> {
+  const { data, error } = await rpc('list_my_conversations')
+  if (error) throw error
+  return ((data ?? []) as any[]).map((r) => ({
+    id: r.c_id,
+    isGroup: r.c_is_group,
+    title: r.c_title,
+    teamId: r.c_team_id,
+    createdAt: r.c_created_at,
+    otherId: r.other_id ?? undefined,
+    otherNickname: r.other_nickname ?? undefined,
+    otherAvatar: r.other_avatar_url,
+    otherVerified: !!r.other_verified,
+    otherShowOnline: r.other_show_online ?? true,
+    lastMessage: r.last_body ?? undefined,
+    lastMessageAt: r.last_at ?? undefined,
+    lastSenderId: r.last_sender_id ?? undefined,
+    unreadCount: r.unread_count ?? 0
+  }))
+}
+
+/** O primeiro argumento mantém-se por compatibilidade; a identidade vem sempre da sessão no servidor. */
+export async function getOrCreateDm(_userId: string, otherId: string): Promise<string> {
+  const { data, error } = await rpc('get_or_create_dm', { p_other: otherId })
+  if (error) throw error
+  return data as string
+}
+
+/** Devolve null se a conversa não existir ou o utilizador não for membro (RLS). */
+export async function getConversationMeta(conversationId: string, userId: string): Promise<ConversationMeta | null> {
+  const { data, error } = await supabase
+    .from('conversation_members')
+    .select('profile_id, last_read_at, profiles(nickname, avatar_url, is_verified, show_online_status)')
+    .eq('conversation_id', conversationId)
+  if (error) throw error
+  const rows = (data ?? []) as any[]
+  if (!rows.some((r) => r.profile_id === userId)) return null
+  const other = rows.find((r) => r.profile_id !== userId)
+  return {
+    otherId: other?.profile_id ?? null,
+    otherNickname: other?.profiles?.nickname ?? null,
+    otherAvatar: other?.profiles?.avatar_url ?? null,
+    otherVerified: !!other?.profiles?.is_verified,
+    otherShowOnline: other?.profiles?.show_online_status ?? true,
+    otherLastReadAt: other?.last_read_at ?? null
+  }
+}
+
+/** Mensagens mais recentes primeiro na base de dados; devolvidas por ordem cronológica. */
+export async function listMessages(conversationId: string, before?: string): Promise<Message[]> {
+  let query = supabase
+    .from('messages')
+    .select('*')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: false })
+    .limit(MESSAGE_PAGE_SIZE)
+  if (before) query = query.lt('created_at', before)
+  const { data, error } = await query
+  if (error) throw error
+  return (data ?? []).map(rowToMessage).reverse()
+}
+
+/**
+ * Enviar é idempotente: o mesmo clientId nunca cria duas mensagens (índice único no servidor),
+ * por isso repetir depois de uma falha de rede é seguro.
+ */
+export async function sendMessage(
+  conversationId: string,
+  senderId: string,
+  body: string,
+  clientId: string
+): Promise<Message> {
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({ conversation_id: conversationId, sender_id: senderId, body: body.trim(), client_id: clientId } as any)
+    .select()
+    .single()
+  if (!error) return rowToMessage(data)
+
+  if ((error as any).code === '23505') {
+    // Já tinha sido gravada numa tentativa anterior (resposta perdida): vai buscá-la.
+    const { data: existing, error: e2 } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('sender_id', senderId)
+      .eq('client_id', clientId)
+      .single()
+    if (e2) throw e2
+    return rowToMessage(existing)
+  }
+  throw error
+}
+
+export async function markConversationRead(conversationId: string): Promise<void> {
+  const { error } = await rpc('mark_conversation_read', { p_conversation: conversationId })
+  if (error) throw error
+}
+
+/** Novas mensagens e leituras da outra pessoa, numa conversa. */
+export function subscribeConversation(
+  conversationId: string,
+  handlers: { onMessage: (msg: Message) => void; onOtherRead: (userId: string, readAt: string) => void }
+) {
   const channel = supabase
-    .channel(`messages:${conversationId}`)
+    .channel(`chat:${conversationId}`)
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversationId}` },
+      (payload) => handlers.onMessage(rowToMessage(payload.new))
+    )
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'conversation_members', filter: `conversation_id=eq.${conversationId}` },
       (payload) => {
         const r = payload.new as any
-        onMessage({
-          id: r.id,
-          conversationId: r.conversation_id,
-          senderId: r.sender_id,
-          body: r.body,
-          createdAt: r.created_at
-        })
+        if (r.last_read_at) handlers.onOtherRead(r.profile_id, r.last_read_at)
       }
     )
+    .subscribe()
+  return () => {
+    supabase.removeChannel(channel)
+  }
+}
+
+/** Qualquer mudança que afete a lista de conversas (RLS garante que só chegam as minhas). */
+export function subscribeInbox(userId: string, onChange: () => void) {
+  const channel = supabase
+    .channel(`inbox:${userId}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, onChange)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversation_members' }, onChange)
     .subscribe()
   return () => {
     supabase.removeChannel(channel)

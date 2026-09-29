@@ -5,6 +5,7 @@ import { followProfile, isFollowingProfile, unfollowProfile } from '@/services/f
 import { listPostsByAuthor } from '@/services/feedService'
 import { getOrCreateDm } from '@/services/messageService'
 import { createReport, type ReportReason } from '@/services/reportService'
+import { blockPlayer, isBlocked, unblockPlayer } from '@/services/settingsService'
 import { useAuth } from '@/hooks/useAuth'
 import { usePostActions } from '@/hooks/usePostActions'
 import { useToast } from '@/components/ui/Toast'
@@ -31,6 +32,8 @@ export default function PlayerProfile() {
   const [following, setFollowing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [reporting, setReporting] = useState(false)
+  const [blocked, setBlocked] = useState(false)
+  const [blockBusy, setBlockBusy] = useState(false)
   const actions = usePostActions(setPosts)
 
   const isSelf = !!user && user.id === id
@@ -44,7 +47,10 @@ export default function PlayerProfile() {
       setPage(data)
       if (data) {
         setPosts(await listPostsByAuthor(id, user?.id))
-        if (user && user.id !== id) setFollowing(await isFollowingProfile(user.id, id))
+        if (user && user.id !== id) {
+          setFollowing(await isFollowingProfile(user.id, id))
+          setBlocked(await isBlocked(id))
+        }
       }
     } catch (e) {
       console.error(e)
@@ -98,6 +104,26 @@ export default function PlayerProfile() {
       show('Não foi possível enviar a denúncia.')
     } finally {
       setReporting(false)
+    }
+  }
+
+  async function toggleBlock() {
+    if (!id || blockBusy) return
+    setBlockBusy(true)
+    const was = blocked
+    setBlocked(!was)
+    try {
+      if (was) await unblockPlayer(id)
+      else {
+        await blockPlayer(id)
+        setFollowing(false)
+      }
+    } catch (e) {
+      console.error(e)
+      setBlocked(was)
+      show('Não foi possível atualizar o bloqueio.')
+    } finally {
+      setBlockBusy(false)
     }
   }
 
@@ -199,17 +225,25 @@ export default function PlayerProfile() {
                 <button
                   type="button"
                   onClick={toggleFollow}
-                  disabled={busy}
-                  className={`flex-1 rounded-xl2 py-3 font-semibold transition-colors ${
+                  disabled={busy || blocked}
+                  className={`flex-1 rounded-xl2 py-3 font-semibold transition-colors disabled:opacity-40 ${
                     following ? 'bg-base-700 text-white border border-base-500' : 'bg-white text-black'
                   }`}
                 >
                   {following ? 'A seguir' : 'Seguir'}
                 </button>
-                <button type="button" onClick={openChat} className="flex-1 btn-secondary">
+                <button
+                  type="button"
+                  onClick={openChat}
+                  disabled={blocked}
+                  className="flex-1 btn-secondary disabled:opacity-40"
+                >
                   Mensagem
                 </button>
               </div>
+            )}
+            {blocked && (
+              <p className="text-xs text-accent-soft mt-2 text-center">Bloqueaste este jogador.</p>
             )}
           </section>
 
@@ -261,9 +295,12 @@ export default function PlayerProfile() {
           </section>
 
           {!isSelf && (
-            <div className="text-center mt-8">
+            <div className="text-center mt-8 flex items-center justify-center gap-4">
               <button type="button" onClick={() => setReporting(true)} className="text-xs text-white/40 underline">
                 Denunciar este perfil
+              </button>
+              <button type="button" onClick={toggleBlock} disabled={blockBusy} className="text-xs text-accent-soft underline">
+                {blocked ? 'Desbloquear' : 'Bloquear'}
               </button>
             </div>
           )}

@@ -30,5 +30,53 @@ export const FEATURE_STATUS: Record<string, { status: FeatureStatus; note: strin
   scrim_room_privacy: {
     status: 'PARTIAL',
     note: 'Migration 0013 move código/senha das salas para tabelas privadas com RLS (criador, admin e equipas inscritas). Passa a REAL depois de aplicada e testada no Supabase.'
+  },
+  messaging_rls_fix: {
+    status: 'REAL',
+    note: 'Migration 0014 corrige uma falha grave: as políticas RLS de mensagens tinham uma referência errada e deixavam qualquer jogador ler/escrever em conversas alheias. Corrigido com função sem recursão de RLS.'
+  },
+  messaging_inbox: {
+    status: 'REAL',
+    note: 'Lista de conversas com não lidas, estado online/offline e ordenação por atividade, numa função SQL única (sem N+1).'
+  },
+  messaging_delivery: {
+    status: 'REAL',
+    note: 'Envio otimista com client_id único (sem duplicados em retry/duplo toque), estados enviando/enviada/lida/falhou, scroll inteligente e correção do teclado móvel via visualViewport.'
+  },
+  notifications_bugfix: {
+    status: 'REAL',
+    note: 'O serviço de notificações interrogava a coluna user_id, que não existe (a tabela usa profile_id) — todas as notificações falhavam sempre. Corrigido; agora também com tempo real e link direto ao conteúdo.'
+  },
+  feed_infinite_scroll: {
+    status: 'REAL',
+    note: 'Scroll infinito por IntersectionObserver e banner "Novas publicações ↑" via Realtime, sem interromper a leitura.'
+  },
+  player_settings_account: {
+    status: 'REAL',
+    note: 'Nome, bio, UID Free Fire, alterar email/palavra-passe, recuperação de palavra-passe, terminar sessão noutros dispositivos — tudo persistido no Supabase Auth/profiles.'
+  },
+  player_settings_competitive: {
+    status: 'REAL',
+    note: 'Região, funções, nível, disponibilidade e "disponibilidade para recrutamento" editáveis e persistidos.'
+  },
+  player_settings_privacy: {
+    status: 'PARTIAL',
+    note: 'Quem pode enviar mensagens/comentar é validado no servidor (RLS/triggers). Mostrar UID/estatísticas aplicado no perfil. Mostrar estado online tem efeito a partir de quando a app carrega essa preferência (ainda não é lida no arranque da sessão). "Quem pode ver o perfil" ainda não restringe nada — fica registado mas não é aplicado.'
+  },
+  player_settings_notifications: {
+    status: 'PARTIAL',
+    note: 'Mensagens, likes, respostas e novos seguidores podem ser desligados (aplicado nos triggers SQL). Candidaturas, scrims, torneios e updates de equipa ainda não têm essa opção.'
+  },
+  player_settings_blocking: {
+    status: 'REAL',
+    note: 'Bloquear impede mensagens novas e em conversas existentes (RLS), nos dois sentidos. Lista de bloqueados com desbloquear.'
+  },
+  player_settings_appearance_language: {
+    status: 'PREPARED',
+    note: 'A escolha de tema e idioma fica guardada, mas a app só tem o visual escuro implementado e só tem textos em português — por isso ainda não muda nada visualmente.'
+  },
+  player_settings_delete_account: {
+    status: 'PARTIAL',
+    note: 'A anon key não pode apagar contas do Supabase Auth. O pedido suspende a conta de imediato e fica registado para um admin confirmar a eliminação definitiva — não é uma eliminação automática.'
   }
 }

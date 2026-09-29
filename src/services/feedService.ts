@@ -190,3 +190,22 @@ export async function addComment(postId: string, authorId: string, body: string)
     authorNickname: (data as any).profiles?.nickname
   }
 }
+
+/**
+ * Avisa quando surgem publicações principais novas (para o banner "Novas publicações ↑").
+ * Não busca o conteúdo aqui — o Feed decide quando (e se) recarrega, para nunca interromper
+ * a leitura do utilizador nem alterar posts já na tela.
+ */
+export function subscribeNewTopLevelPosts(onNew: () => void) {
+  const channel = supabase
+    .channel('feed:new-posts')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'posts', filter: 'parent_id=is.null' },
+      onNew
+    )
+    .subscribe()
+  return () => {
+    supabase.removeChannel(channel)
+  }
+}

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { createPost, listTimeline, PAGE_SIZE, type TimelineTab } from '@/services/feedService'
+import { createPost, listTimeline, PAGE_SIZE, subscribeNewTopLevelPosts, type TimelineTab } from '@/services/feedService'
 import { uploadImage, IMAGE_PRESETS } from '@/services/storageService'
 import type { Post } from '@/types/post'
 import { useAuth } from '@/hooks/useAuth'
@@ -25,7 +25,11 @@ export default function Feed() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasNew, setHasNew] = useState(false)
   const request = useRef(0)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const posRef = useRef(posts)
+  posRef.current = posts
   const actions = usePostActions(setPosts)
 
   const load = useCallback(async () => {
@@ -33,6 +37,7 @@ export default function Feed() {
     const id = ++request.current
     setLoading(true)
     setError(null)
+    setHasNew(false)
     try {
       const data = await listTimeline({ userId: user.id, tab })
       if (id !== request.current) return // resposta antiga (mudaste de separador)
@@ -50,8 +55,18 @@ export default function Feed() {
     load()
   }, [load])
 
-  async function loadMore() {
-    if (!user || posts.length === 0) return
+  // Avisa de novas publicações sem nunca reordenar/apagar o que já está na tela.
+  useEffect(() => {
+    if (!user) return
+    return subscribeNewTopLevelPosts(() => {
+      const isAtTop = window.scrollY < 80
+      if (isAtTop) load()
+      else setHasNew(true)
+    })
+  }, [user?.id, load])
+
+  const loadMore = useCallback(async () => {
+    if (!user || posts.length === 0 || loadingMore || !hasMore) return
     setLoadingMore(true)
     try {
       const data = await listTimeline({ userId: user.id, tab, before: posts[posts.length - 1].createdAt })
@@ -62,13 +77,27 @@ export default function Feed() {
     } finally {
       setLoadingMore(false)
     }
-  }
+  }, [user?.id, tab, posts, loadingMore, hasMore])
+
+  // Scroll infinito: carrega antes de o utilizador chegar mesmo ao fundo.
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el || loading) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && posRef.current.length > 0) loadMore()
+      },
+      { rootMargin: '600px 0px' }
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [loading, loadMore])
 
   async function handlePost(body: string, image: File | null) {
     if (!user) return
     const imageUrl = image ? await uploadImage('post-media', user.id, image, IMAGE_PRESETS.post) : undefined
     const created = await createPost(user.id, body, imageUrl)
-    setPosts((prev) => [created, ...prev])
+    setPosts((prev) => (prev.some((p) => p.id === created.id) ? prev : [created, ...prev]))
   }
 
   return (
@@ -89,6 +118,18 @@ export default function Feed() {
             </button>
           ))}
         </div>
+        {hasNew && (
+          <button
+            type="button"
+            onClick={() => {
+              window.scrollTo({ top: 0, behavior: 'smooth' })
+              load()
+            }}
+            className="absolute left-1/2 -translate-x-1/2 top-14 bg-white text-black text-sm font-semibold rounded-full px-4 py-2 shadow-lg"
+          >
+            Novas publicações ↑
+          </button>
+        )}
       </header>
 
       <Composer
@@ -136,17 +177,12 @@ export default function Feed() {
           />
         ))}
 
-      {!loading && hasMore && (
-        <div className="p-4 text-center">
-          <button
-            type="button"
-            onClick={loadMore}
-            disabled={loadingMore}
-            className="text-sm text-white/60 underline disabled:opacity-50"
-          >
-            {loadingMore ? 'A carregar…' : 'Carregar mais'}
-          </button>
-        </div>
+      {!loading && <div ref={sentinelRef} aria-hidden="true" className="h-1" />}
+      {!loading && loadingMore && (
+        <div className="p-4 text-center text-sm text-white/40">A carregar…</div>
+      )}
+      {!loading && !hasMore && posts.length > 0 && (
+        <p className="text-center text-xs text-white/25 py-6">Chegaste ao fim.</p>
       )}
 
       {actions.overlays}

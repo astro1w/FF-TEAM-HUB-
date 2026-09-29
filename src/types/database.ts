@@ -20,6 +20,7 @@ export type NotificationType =
   | 'team_update'
   | 'new_follower'
   | 'post_reply'
+  | 'post_like'
 
 export interface Database {
   public: {
@@ -44,6 +45,15 @@ export interface Database {
           is_verified: boolean
           country_code: string
           competitive_id: string
+          who_can_message: 'everyone' | 'team' | 'none'
+          who_can_comment: 'everyone' | 'team' | 'none'
+          profile_visibility: 'everyone' | 'team' | 'none'
+          show_online_status: boolean
+          show_uid: boolean
+          show_stats: boolean
+          competitive_status: 'searching' | 'in_team' | 'unavailable'
+          theme_preference: 'light' | 'dark' | 'system'
+          locale: 'pt' | 'en'
           created_at: string
           updated_at: string
         }
@@ -148,20 +158,20 @@ export interface Database {
       notifications: {
         Row: {
           id: string
-          user_id: string
+          profile_id: string
           type: NotificationType
           title: string
           body: string | null
-          data: Record<string, unknown> | null
+          link: string | null
           read: boolean
           created_at: string
         }
         Insert: {
-          user_id: string
+          profile_id: string
           type: NotificationType
           title: string
           body?: string | null
-          data?: Record<string, unknown> | null
+          link?: string | null
         }
         Update: Partial<Database['public']['Tables']['notifications']['Row']>
       }
